@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time Collaborative Editor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    #editor {
+      width: 100vw;
+      height: 80vh;
+    }
+
+    #chat {
+      width: 30vw;
+      height: 80vh;
+      border: 1px solid #ccc;
+      overflow-y: scroll;
+      padding: 10px;
+    }
+
+    #messages {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    #messages li {
+      margin-bottom: 10px;
+    }
+
+    input[type="text"] {
+      width: 70%;
+    }
+
+    input[type="submit"] {
+      width: 25%;
+    }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+  <div id="chat">
+    <ul id="messages"></ul>
+    <form id="form">
+      <input type="text" id="input" placeholder="Type a message...">
+      <input type="submit" value="Send">
+    </form>
+  </div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/socket.io/client-dist/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs/loader.js"></script>
+<script>
+  require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@latest/min/vs' } });
+
+  require(['vs/editor/editor.main'], function() {
+    var editor = monaco.editor.create(document.getElementById('editor'), {
+      value: 'function hello() {\n\talert("Hello, world!");\n}',
+      language: 'javascript'
+    });
+
+    var socket = io();
+
+    editor.getModel().onDidChangeContent(() => {
+      var value = editor.getModel().getValue();
+      socket.emit('code change', value);
+    });
+
+    socket.on('code change', function(code){
+      editor.getModel().setValue(code);
+    });
+
+    socket.on('chat message', function(msg){
+      var item = document.createElement('li');
+      item.textContent = msg;
+      document.getElementById('messages').appendChild(item);
+      document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+    });
+
+    document.getElementById('form').addEventListener('submit', function(e){
+      e.preventDefault();
+      var message = document.getElementById('input').value;
+      socket.emit('chat message', message);
+      document.getElementById('input').value = '';
+    });
+
+    socket.on('connect', function(){
+      console.log('Connected to server');
+    });
+
+    socket.on('disconnect', function(){
+      console.log('Disconnected from server');
+    });
+  });
+</script>
+</html>
